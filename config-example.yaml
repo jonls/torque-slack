@@ -1,0 +1,9 @@
+# Put your Slack WebHook URL here
+slack_webhook_url: https://hooks.slack.com/services/...
+
+# You can change where the Torque log files are located
+torque_home: /var/spool/torque
+
+# Only post job information for these groups
+# (comment out to post information for all users).
+groups: ['bio', 'chem']

@@ -1,0 +1,2 @@
+
+"""Torque slack application package"""

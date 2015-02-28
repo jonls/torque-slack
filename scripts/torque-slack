@@ -1,0 +1,154 @@
+#!/usr/bin/env python
+
+import re
+import argparse
+from datetime import datetime, timedelta
+from Queue import Queue, Empty
+import logging
+
+import yaml
+
+from torque_slack import slack
+from torque_slack import torque
+
+logger = logging.getLogger(__name__)
+
+# Job information
+job_info = {}
+
+
+def update_accounting(event, hook, config):
+    """Update based on accounting log event"""
+
+    # Ignore all but start events
+    if event['state'] != 'S':
+        return
+
+    props = event['properties']
+    user = props['user']
+    group = props['group']
+    job_id, _ = event['job_id'].split('.', 1)
+    job_name = props['jobname']
+
+    # Filter jobs by users and groups
+    if 'users' in config:
+        if user not in config['users']:
+            return
+    if 'groups' in config:
+        if group not in config['groups']:
+            return
+
+    # Extract job ID from array job specification
+    m = re.match(r'^(\d+)\[.*\]$', job_id)
+    if m:
+        job_id = m.group(1)
+
+    if job_id not in job_info:
+        job_info[job_id] = {'user': user,
+                            'job_name': job_name,
+                            'start_time': event['timestamp']}
+
+        message = '{}: Job *{}* ({}) is now running.'.format(
+            user, job_id, job_name)
+        if hook is not None:
+            hook.enqueue(slack.create_text_message(message))
+
+def update_server(event, hook, config):
+    """Update based on server log event"""
+
+    if event['section'] != 'Job':
+        return
+
+    message = event['message']
+    if message.startswith('dequeuing'):
+        m = re.match(r'^dequeuing from .*, state (.*)$', message)
+        job_id, _ = event['about'].split('.', 1)
+        state = m.group(1).lower()
+
+        # Extract job ID from array job specification
+        m = re.match(r'(\d+)\[\]', job_id)
+        if m:
+            job_id = m.group(1)
+
+        if job_id in job_info:
+            user = job_info[job_id]['user']
+            walltime = event['timestamp'] - job_info[job_id]['start_time']
+            job_name = job_info[job_id]['job_name']
+
+            message = '{}: Job *{}* ({}) has finished after {}.'.format(
+                user, job_id, job_name, walltime)
+            if hook is not None:
+                hook.enqueue(slack.create_text_message(message))
+
+def update(queue, hook, config):
+    """Wait for events and send notifications"""
+
+    while True:
+        # A timeout has to be specified here, otherwise ctrl-c does not
+        # interrupt the blocking get call. Let's set it to one year.
+        try:
+            event = queue.get(True, 365*24*60*60)
+        except Empty:
+            continue
+
+        if datetime.now() - event['timestamp'] > timedelta(seconds=5):
+            continue
+
+        if event['log'] == 'accounting':
+            update_accounting(event, hook, config)
+        elif event['log'] == 'server':
+            update_server(event, hook, config)
+
+if __name__ == '__main__':
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description='Post Torque job information to Slack')
+    parser.add_argument('--config', metavar='file',
+                        help='Configuration file')
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
+
+    # Load configuration file
+    if args.config:
+        with open(args.config, 'r') as f:
+            config = yaml.load(f)
+    else:
+        config = {}
+
+    # Run Torque log collector
+    logger.info('Running Torque log collector...')
+    event_queue = Queue()
+    torque_home = None
+    if 'torque_home' in config:
+        torque_home = config['torque_home']
+
+    collector = torque.TorqueLogCollector(event_queue, torque_home)
+
+    # Run Slack WebHook connector
+    if 'slack_webhook_url' in config:
+        logger.info('Using Slack WebHook URL: {}'.format(
+            config['slack_webhook_url']))
+        hook = slack.SlackWebHook(config['slack_webhook_url'])
+        hook.start()
+    else:
+        logger.warning('No Slack URL defined! No messages will be sent.')
+        logger.warning('Set "slack_webhook_url" in the configuration' +
+                       ' file to enable Slack messages.')
+        hook = None
+
+    try:
+        update(event_queue, hook, config)
+    except KeyboardInterrupt:
+        pass
+
+    logger.info('Main thread ended.')
+
+    logger.info('Stopping log collector...')
+    collector.stop()
+
+    if hook is not None:
+        logger.info('Stopping Slack WebHook connector...')
+        hook.stop()
+
+    logger.info('Done.')
