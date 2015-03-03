@@ -26,24 +26,6 @@ class SlackWebHook(Thread):
         self._message_queue = Queue()
         self._running = True
 
-    def format_message(event):
-        job_id = event['job_id']
-        job_name = event['job_name']
-        user = event['user']
-        state = event['state']
-
-        if state == 'started':
-            text = '{}: Job *{}* ({}) is now running!'.format(
-                user, job_id, job_name)
-        elif state == 'complete':
-            text = '{}: Job *{}* ({}) has finished after {}!'.format(
-                user, job_id, job_name, event['walltime'])
-        else:
-            text = '{}: Job *{}* ({}) is in state *{}*'.format(
-                user, job_id, job_name, state)
-
-        return slack_escape(text)
-
     def enqueue(self, message):
         self._message_queue.put(message)
 
