@@ -10,11 +10,99 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def escape(s):
-    return s.replace('<', '&lt;').replace('>', '&gt;').replace('&', '&amp;')
 
-def create_text_message(text):
-    return {'text': escape(text)}
+class AttachmentColor(object):
+    """Predefined colors of attachments"""
+    Good = 'good'
+    Warning = 'warning'
+    Danger = 'danger'
+
+
+class Markup(unicode):
+    """Markup-safe string that does not need escaping"""
+    @classmethod
+    def escape(cls, s):
+        """Escape string into Markup object
+
+        If already escape, the same object is returned.
+        """
+        if not isinstance(s, Markup):
+            return Markup(s.replace('&', '&amp;').
+                          replace('<', '&lt;').
+                          replace('>', '&gt;'))
+        return s
+
+    def __repr__(self):
+        return 'Markup(' + super(Markup, self).__repr__() + ')'
+
+
+class Message(object):
+    """Slack WebHook message"""
+    def __init__(self, text=None, username=None,
+                 channel=None, attachments=None):
+        self.text = text
+        self.username = username
+        self.channel = channel
+        self.attachments = attachments
+
+    def document(self):
+        doc = {}
+        if self.text is not None:
+            doc['text'] = Markup.escape(self.text)
+        if self.username is not None:
+            doc['username'] = self.username
+        if self.channel is not None:
+            doc['channel'] = self.channel
+        if self.attachments is not None:
+            doc['attachments'] = [a.document() for a in
+                                  self.attachments]
+        return doc
+
+
+class Attachment(object):
+    """Slack message attachment"""
+    def __init__(self, fallback, color=None, pretext=None,
+                 author=None, title=None, title_link=None,
+                 text=None, image_url=None):
+        self.fallback = fallback
+        self.color = color
+        self.pretext = pretext
+        self.author = author
+        self.title = title
+        self.title_link = title_link
+        self.text = text
+        self.image_url = image_url
+
+    def document(self):
+        doc = {'fallback': self.fallback}
+        if self.color is not None:
+            doc['color'] = self.color
+        if self.pretext is not None:
+            doc['pretext'] = Markup.escape(self.pretext)
+        if self.author is not None:
+            doc['author_name'] = self.author.name
+            if self.author.link is not None:
+                doc['author_link'] = self.author.link
+            if self.author.icon is not None:
+                doc['author_icon'] = self.author.icon
+        if self.title is not None:
+            doc['title'] = Markup.escape(self.title)
+        if self.title_link is not None:
+            doc['title_link'] = self.title_link
+        if self.text is not None:
+            doc['text'] = Markup.escape(self.text)
+        if self.image_url is not None:
+            doc['image_url'] = self.image_url
+        return doc
+
+
+class Author(object):
+    """Slack message attachment author"""
+    def __init__(self, name, link=None, icon=None):
+        self.name = name
+        self.link = link
+        self.icon = icon
+
 
 class SlackWebHook(Thread):
     """Threaded interface to WebHooks API"""
@@ -39,10 +127,10 @@ class SlackWebHook(Thread):
             if message is None:
                 continue
 
-            logger.info('Posting message {}'.format(message))
+            logger.info('Posting message {}'.format(message.document()))
 
             # Post to endpoint
-            data = json.dumps(message)
+            data = json.dumps(message.document())
             req = urllib2.Request(self._endpoint, data,
                                   {'Content-Type': 'application/json'})
             try:

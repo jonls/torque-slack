@@ -51,7 +51,7 @@ def update_accounting(event, hook, config):
         message = '{}: Job *{}* ({}) is now running.'.format(
             user, job_id, job_name)
         if hook is not None:
-            hook.enqueue(slack.create_text_message(message))
+            hook.enqueue(slack.Message(message))
 
 def update_server(event, hook, config):
     """Update based on server log event"""
@@ -78,7 +78,7 @@ def update_server(event, hook, config):
             message = '{}: Job *{}* ({}) has finished after {}.'.format(
                 user, job_id, job_name, walltime)
             if hook is not None:
-                hook.enqueue(slack.create_text_message(message))
+                hook.enqueue(slack.Message(message))
 
 def update(queue, hook, config):
     """Wait for events and send notifications"""
