@@ -126,14 +126,14 @@ if __name__ == '__main__':
     collector = torque.TorqueLogCollector(event_queue, torque_home)
 
     # Run Slack WebHook connector
-    if 'slack_webhook_url' in config:
+    if 'slack' in config and 'webhook_url' in config['slack']:
         logger.info('Using Slack WebHook URL: {}'.format(
-            config['slack_webhook_url']))
-        hook = slack.SlackWebHook(config['slack_webhook_url'])
+            config['slack']['webhook_url']))
+        hook = slack.SlackWebHook(config['slack']['webhook_url'])
         hook.start()
     else:
         logger.warning('No Slack URL defined! No messages will be sent.')
-        logger.warning('Set "slack_webhook_url" in the configuration' +
+        logger.warning('Set "slack.webhook_url" in the configuration' +
                        ' file to enable Slack messages.')
         hook = None
 

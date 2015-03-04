@@ -1,5 +1,10 @@
-# Put your Slack WebHook URL here
-slack_webhook_url: https://hooks.slack.com/services/...
+slack:
+  # Put your Slack WebHook URL here
+  webhook_url: https://hooks.slack.com/services/...
+
+  # You can change the username and channel
+  #username: my-git-bot
+  #channel: '#random'
 
 # You can change where the Torque log files are located
 torque_home: /var/spool/torque
