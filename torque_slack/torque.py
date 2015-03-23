@@ -96,9 +96,10 @@ class TorqueLogCollector(object):
                 path = os.path.join(directory, name)
                 yield path, os.path.getmtime(path)
 
-        recent = max(files_mtime(directory), key=operator.itemgetter(1))
-        if len(recent) > 0:
-            with open(recent[0], 'r') as f:
+        recent = sorted(files_mtime(directory), key=operator.itemgetter(1))
+        for path, _ in recent[-7:]:
+            logger.info('Replaying file {}...'.format(path))
+            with open(path, 'r') as f:
                 for line in f:
                     callback(line.rstrip())
 
