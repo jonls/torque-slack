@@ -18,7 +18,8 @@ setup(
     long_description=long_description,
 
     packages=['torque_slack'],
-    scripts=['scripts/torque-slack'],
+    scripts=['scripts/torque-slack-poster',
+             'scripts/torque-log-parser'],
     install_requires=[
         'PyYAML',
         'pyinotify'
