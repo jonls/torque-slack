@@ -134,7 +134,7 @@ class TorqueLogCollector(object):
         # 02/27/2015 00:59:44;0100;PBS_Server.23657;Job;22495[].clusterhn.cluster.com;enqueuing into default, state 1 hop 1
 
         dt, line = self._parse_log_date(line)
-        log_type, server, section, about, message = line.split(';')
+        log_type, server, section, about, message = line.split(';', 4)
 
         event = {'log': 'server',
                  'timestamp': dt,
@@ -153,7 +153,7 @@ class TorqueLogCollector(object):
         # 02/26/2015 00:04:48;Q;22320.clusterhn.cluster.com;queue=default
 
         dt, line = self._parse_log_date(line)
-        state, job_id, properties = line.split(';')
+        state, job_id, properties = line.split(';', 2)
         properties = dict(self._parse_properties(properties.rstrip()))
 
         event = {'log': 'accounting',
