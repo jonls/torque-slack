@@ -135,8 +135,8 @@ class TorqueLogCollector(object):
 
         return dt, m.group(7)
 
-    def _server_cb(self, line):
-        """Callback when a server log entry appears"""
+    def _parse_server_entry(self, line):
+        """Parse a server log entry"""
         # Example:
         # 02/27/2015 00:59:44;0100;PBS_Server.23657;Job;22495[].clusterhn.cluster.com;enqueuing into default, state 1 hop 1
 
@@ -151,10 +151,10 @@ class TorqueLogCollector(object):
                  'about': about,
                  'message': message}
 
-        self._queue.put(event)
+        return event
 
-    def _acct_cb(self, line):
-        """Callback when an accounting log entry appears"""
+    def _parse_acct_entry(self, line):
+        """Parse an accounting log entry"""
 
         # Example:
         # 02/26/2015 00:04:48;Q;22320.clusterhn.cluster.com;queue=default
@@ -169,7 +169,15 @@ class TorqueLogCollector(object):
                  'state': state,
                  'properties': properties}
 
-        self._queue.put(event)
+        return event
+
+    def _server_cb(self, line):
+        """Callback when a server log entry appears"""
+        self._queue.put(self._parse_server_entry(line))
+
+    def _acct_cb(self, line):
+        """Callback when an accounting log entry appears"""
+        self._queue.put(self._parse_acct_entry(line))
 
     def _parse_properties(self, s):
         """"Parse list of properties separated by space"""
