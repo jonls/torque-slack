@@ -14,13 +14,15 @@ DEFAULT_TORQUE_HOME = '/var/spool/torque'
 class LogCollectorError(Exception):
     """Raised on errors on collecting log entries"""
 
+
 class FilesWatcher(pyinotify.ProcessEvent):
     """Callback on created and modified files
 
     When a file is created, it is set to be the watched file.
     When a file is modified, the each new lines in the file is
     passed to the callback. If a file is modified that is not
-    the currently watched file, an error is raised."""
+    the currently watched file, an error is raised.
+    """
 
     def __init__(self, callback):
         self._file = None
@@ -28,17 +30,20 @@ class FilesWatcher(pyinotify.ProcessEvent):
         self._callback = callback
         self._buffer = ''
 
-    def process_IN_CREATE(self, event):
+    def set_current(self, filepath, f=None):
+        """Set currently watched file"""
         if self._file is not None:
             self._file.close()
-            self._filepath = event.pathname
-            self._file = open(event.pathname, 'r')
-            self._buffer = ''
+        self._filepath = filepath
+        self._file = f if f is not None else open(filepath, 'r')
+        self._buffer = ''
+
+    def process_IN_CREATE(self, event):
+        self.set_current(event.pathname)
 
     def process_IN_MODIFY(self, event):
         if self._file is None:
-            self._filepath = event.pathname
-            self._file = open(event.pathname, 'r')
+            self.set_current(event.pathname)
         elif self._filepath != event.pathname:
             raise LogCollectorError('Unexpected modifications to {}'.format(
                 event.pathname))
@@ -48,6 +53,7 @@ class FilesWatcher(pyinotify.ProcessEvent):
         if buffer != '':
             for line in buffer.split('\n'):
                 self._callback(line)
+
 
 class TorqueLogCollector(object):
     def __init__(self, queue, torque_home=None):
