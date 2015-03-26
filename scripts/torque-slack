@@ -64,12 +64,16 @@ def update_accounting(event, hook, config, start_time):
 
         ext_job_id = job_id if not array_job else job_id+'[]'
 
+        fallback = '{}: Job {} ({}) is now running.'.format(
+            user, ext_job_id, job_name)
+
         # Create Slack message
         attachment = slack.Attachment(
-            fallback='{}: Job {} ({}) is now running.'.format(
-                user, ext_job_id, job_name),
+            fallback=fallback,
             pretext='Job is running for {}:'.format(user),
             title='Job #{}: {}'.format(ext_job_id, job_name))
+
+        logger.info(fallback)
 
         message = slack.Message(attachments=[attachment],
                                 username=slack_username,
@@ -113,14 +117,18 @@ def update_server(event, hook, config, start_time):
 
             ext_job_id = job_id if not array_job else job_id+'[]'
 
+            fallback = '{}: Job {} ({}) has finished in {}'.format(
+                user, ext_job_id, job_name, walltime)
+
             # Create Slack message
             attachment = slack.Attachment(
-                fallback='{}: Job {} ({}) has finished in {}'.format(
-                    user, ext_job_id, job_name, walltime),
+                fallback=fallback,
                 color=slack.AttachmentColor.Good,
                 pretext='Job ended for {}:'.format(user),
                 title='Job #{}: {}'.format(ext_job_id, job_name),
                 text='Finished in {}'.format(walltime))
+
+            logger.info(fallback)
 
             message = slack.Message(attachments=[attachment],
                                     username=slack_username,
