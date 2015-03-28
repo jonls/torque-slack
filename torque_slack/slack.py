@@ -39,11 +39,13 @@ class Markup(unicode):
 class Message(object):
     """Slack WebHook message"""
     def __init__(self, text=None, username=None,
-                 channel=None, attachments=None):
+                 channel=None, attachments=None,
+                 mrkdwn=None):
         self.text = text
         self.username = username
         self.channel = channel
         self.attachments = attachments
+        self.mrkdwn = mrkdwn
 
     def document(self):
         doc = {}
@@ -56,6 +58,8 @@ class Message(object):
         if self.attachments is not None:
             doc['attachments'] = [a.document() for a in
                                   self.attachments]
+        if self.mrkdwn is not None:
+            doc['mrkdwn'] = bool(self.mrkdwn)
         return doc
 
 
@@ -63,7 +67,7 @@ class Attachment(object):
     """Slack message attachment"""
     def __init__(self, fallback, color=None, pretext=None,
                  author=None, title=None, title_link=None,
-                 text=None, image_url=None):
+                 text=None, image_url=None, mrkdwn_in=None):
         self.fallback = fallback
         self.color = color
         self.pretext = pretext
@@ -72,6 +76,7 @@ class Attachment(object):
         self.title_link = title_link
         self.text = text
         self.image_url = image_url
+        self.mrkdwn_in = mrkdwn_in
 
     def document(self):
         doc = {'fallback': self.fallback}
@@ -93,6 +98,8 @@ class Attachment(object):
             doc['text'] = Markup.escape(self.text)
         if self.image_url is not None:
             doc['image_url'] = self.image_url
+        if self.mrkdwn_in is not None:
+            doc['mrkdwn_in'] = self.mrkdwn_in
         return doc
 
 
