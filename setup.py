@@ -8,7 +8,7 @@ with open('README.rst') as f:
 
 setup(
     name='torque-slack',
-    version='0.1',
+    version='0.2',
     license='GPLv3+',
     url='http://jonls.dk',
     author='Jon Lund Steffensen',
