@@ -9,7 +9,7 @@ with open('README.rst') as f:
 setup(
     name='torque-slack',
     version='0.2',
-    license='GPLv3+',
+    license='MIT',
     url='http://jonls.dk',
     author='Jon Lund Steffensen',
     author_email='jonlst@gmail.com',
