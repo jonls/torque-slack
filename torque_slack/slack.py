@@ -149,7 +149,8 @@ class SlackWebHook(Thread):
                 if e.code == 429:
                     retry_after = int(e.headers.get('Retry-After', '0'))
                 else:
-                    raise
+                    logger.warning('Error posting message!', exc_info=True)
+                    retry_after = 120
 
             # Wait to avoid flooding
             wait_time = max(retry_after, self._min_post_delay)
