@@ -221,6 +221,9 @@ class TorqueLogCollector(object):
 
     def _parse_properties(self, s):
         """"Parse list of properties separated by space"""
+        if s == '':
+            return
+
         for prop in s.split(' '):
             key, value = prop.split('=', 1)
             yield key, value
