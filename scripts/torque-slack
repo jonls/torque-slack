@@ -2,6 +2,7 @@
 
 import re
 import argparse
+import signal
 from datetime import datetime, timedelta
 from Queue import Queue, Empty
 import logging
@@ -13,8 +14,41 @@ from torque_slack import torque
 
 logger = logging.getLogger(__name__)
 
+# Torque exit codes
+TORQUE_EXIT_CODES = {
+    0: 'OK',
+    -1: 'Job execution failed, before files, no retry',
+    -2: 'Job execution failed, after files, no retry',
+    -3: 'Job execution failed, do retry',
+    -4: 'Job aborted on MOM initialization',
+    -5: 'Job aborted on MOM init, chkpt, no migrate',
+    -6: 'Job aborted on MOM init, chkpt, ok migrate',
+    -7: 'Job restart failed',
+    -8: 'Exec() of user command failed',
+    -9: 'Could not create/open stdout stderr files',
+    -10: 'Job exceeded memory limit',
+    -11: 'Job exceeded walltime limit',
+    -12: 'Job exceeded CPU time limit'
+}
+
+# Signal names
+SIGNAL_NAMES = dict((getattr(signal, n), n) for n in dir(signal)
+                    if n.startswith('SIG') and '_' not in n)
+
 # Job information
 job_info = {}
+
+
+def resolve_exit_code(code):
+    if code in TORQUE_EXIT_CODES:
+        return TORQUE_EXIT_CODES[code]
+
+    if code > 256:
+        signal_code = code - 256
+        return 'Killed by signal {}'.format(
+            SIGNAL_NAMES.get(signal_code, signal_code))
+
+    return None
 
 
 def update_accounting(event, hook, config, start_time):
@@ -139,7 +173,13 @@ def update_server(event, hook, config, start_time):
                 fail_count = sum(
                     a['exit_code'] != 0 for a in array_info.itervalues())
                 success = fail_count == 0
-                exit_code = None
+                if not success:
+                    exit_code = next(array_info.itervalues())['exit_code']
+                    if any(a['exit_code'] != exit_code
+                           for a in array_info.itervalues()):
+                        exit_code = None
+                else:
+                    exit_code = 0
             else:
                 success = job_info[job_id]['exit_code'] == 0
                 fail_count = int(not success)
@@ -156,6 +196,10 @@ def update_server(event, hook, config, start_time):
 
             ext_job_id = job_id if not array_job else job_id+'[]'
 
+            exit_code_reason = None
+            if exit_code is not None:
+                exit_code_reason = resolve_exit_code(exit_code)
+
             if success:
                 color = slack.AttachmentColor.Good
                 fallback = '{}: Job {} ({}) has finished in {}'.format(
@@ -165,12 +209,28 @@ def update_server(event, hook, config, start_time):
                 color = slack.AttachmentColor.Danger
                 fallback = '{}: Job {} ({}) has failed!'.format(
                     user, ext_job_id, job_name)
-                if array_job:
-                    text = '*{}* array jobs failed!'.format(fail_count)
-                    fallback += ' ({} array jobs failed)'.format(fail_count)
+
+                if exit_code is not None:
+                    exit_code_text = 'exit code *{}*'.format(exit_code)
+                    exit_code_fallback = 'exit code {}'.format(exit_code)
+                    if exit_code_reason is not None:
+                        exit_code_text += ': {}'.format(exit_code_reason)
+                        exit_code_fallback += ': {}'.format(exit_code_reason)
+                elif array_job:
+                    exit_code_text = 'various exit codes'
+                    exit_code_fallback = exit_code_text
                 else:
-                    text = 'Job failed with exit code *{}*!'.format(exit_code)
-                    fallback += ' (with exit code {})'.format(exit_code)
+                    exit_code_text = 'unknown exit code'
+                    exit_code_fallback = exit_code_text
+
+                if array_job:
+                    text = '*{}* array jobs failed with {}!'.format(
+                       fail_count, exit_code_text)
+                    fallback += ' ({} array jobs failed with {})'.format(
+                        fail_count, exit_code_fallback)
+                else:
+                    text = 'Job failed with {}!'.format(exit_code_text)
+                    fallback += ' (with {})'.format(exit_code_fallback)
 
             # Create Slack message
             attachment = slack.Attachment(
